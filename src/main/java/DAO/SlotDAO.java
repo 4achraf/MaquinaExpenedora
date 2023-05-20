@@ -15,4 +15,7 @@ public interface SlotDAO {
 
     void updateSlot(Slot s) throws SQLException;
 
+    void deleteSlot(Slot s) throws SQLException;
+
+    void deleteSlot(String codiProducte) throws SQLException;
 }

@@ -2,6 +2,8 @@ import DAO.ProducteDAO;
 import DAO.ProducteDAO_MySQL;
 import DAO.SlotDAO;
 import DAO.SlotDAO_MySQL;
+import model.Producte;
+import model.Slot;
 
 import java.sql.*;
 import java.util.ArrayList;
@@ -10,18 +12,19 @@ import java.util.Scanner;
 
 public class Application {
 
-    //TODO: Afegir un sistema de Logging per les classes.
+    private static final ProducteDAO ProducteDAO = new ProducteDAO_MySQL();
 
-    private static final Dao<Producte> producteDAO = new ProducteDao_MySQL();            //TODO: passar a una classe DAOFactory
-    private static final InputHelper in = InputHelper.getInstance();
+    private static final SlotDAO slotDAO = new SlotDAO_MySQL();
 
+    private static final Scanner escaner = new Scanner(System.in);
     public static void main(String[] args) {
 
         int opcio;
+
         do
         {
             mostrarMenu();
-            opcio = in.nextInt();
+            opcio = escaner.nextInt();
 
             switch (opcio) {
                 case 1 -> mostrarMaquina();
@@ -65,39 +68,30 @@ public class Application {
          *     Podeu fer-ho amb llenguatge SQL o mirant si el producte existeix i després inserir o actualitzar
          */
 
-        //Demanem les dades del nou producte
-        Producte p = in.askProducte();
-
-        try {
-
-            //Intentem guardar el producte p a la BD
-            producteDAO.save(p);
-
-            //Agafem de nou tots els productes de la taula de productes de la BD
-            ArrayList<Producte> productes = (ArrayList<Producte>) producteDAO.getAll();
-
-            //Mostrem tots els productes obtinguts de la BD
-            productes.forEach(System.out::println);
-
-
-        } catch (SQLException e) {          //TODO: tractar les excepcions
-            e.printStackTrace();
-            System.out.println(e.getErrorCode());
-        }
 
     }
 
     private static void mostrarInventari() {
 
         try {
-            //Agafem tots els productes de la BD i els mostrem
-            ArrayList<Producte> productes = (ArrayList<Producte>) producteDAO.getAll();
-            for (Producte prod: productes)
-            {
-                System.out.println(prod);
-            }
+            // Agafem tots els productes de la BD i els mostrem
+            ArrayList<Producte> productes = ProducteDAO.readProductes();
 
-        } catch (SQLException e) {          //TODO: tractar les excepcions
+            System.out.println("Codi      Nom                 Descripció                    Preu Compra   Preu Venta");
+            System.out.println("------------------------------------------------------------------------------------");
+
+            // String.format() -> per mostrar els valors amb un format concret
+            for (Producte prod : productes) {
+                String codi = String.format("%-10s", prod.getCodiProducte());
+                String nom = String.format("%-20s", prod.getNom());
+                String descripcio = String.format("%-30s", prod.getDescripcio());
+                String preuCompra = String.format("%-14s", prod.getPreuCompra());
+                String preuVenta = String.format("%-12s", prod.getPreuVenta());
+
+                System.out.println(codi + nom + descripcio + preuCompra + preuVenta);
+            }
+        } catch (SQLException e) {
+            System.out.println("Error al llegir els productes.");
             e.printStackTrace();
         }
     }
@@ -117,17 +111,34 @@ public class Application {
 
     private static void mostrarMaquina() {
 
-        /** IMPORTANT **
-         * S'està demanat NOM DEL PRODUCTE no el codiProducte (la taula Slot conté posició, codiProducte i stock)
-         * també s'acceptarà mostrant només el codi producte, però comptarà menys.
-         *
-         * Posicio      Producte                Quantitat disponible
-         * ===========================================================
-         * 1            Patates 3D              8
-         * 2            Doritos Tex Mex         6
-         * 3            Coca-Cola Zero          10
-         * 4            Aigua 0.5L              7
-         */
+        ArrayList<Slot> slots;
+
+        try {
+            SlotDAO slotDAO = new SlotDAO_MySQL();
+            slots = slotDAO.readSlots();
+
+            System.out.printf("\n%-15s %-25s %s%n", "Posicio", "Producte", "Quantitat disponible");
+            System.out.println("===========================================================");
+
+            // Imprimir les dades de cada slot
+            for (Slot slot : slots) {
+                ProducteDAO producteDAO = new ProducteDAO_MySQL();
+                Producte producte = producteDAO.readProducte(slot.getCodiProducte());
+
+                String nomProducte;
+                if (producte == null) {
+                    nomProducte = "Producte no trobat";
+                } else {
+                    nomProducte = producte.getNom();
+                }
+
+                System.out.printf("%-15s %-25s %s%n", slot.getPosicio(), nomProducte, slot.getQuantitat());
+            }
+        } catch (SQLException e) {
+            System.out.println("S'ha produït un error al accedir a la base de dades.");
+            System.out.println(e);
+        }
+
     }
 
     private static void mostrarMenu() {
