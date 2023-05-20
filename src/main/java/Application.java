@@ -9,7 +9,6 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.Scanner;
 
-
 public class Application {
 
     private static final ProducteDAO ProducteDAO = new ProducteDAO_MySQL();
@@ -17,7 +16,10 @@ public class Application {
     private static final SlotDAO slotDAO = new SlotDAO_MySQL();
 
     private static final Scanner escaner = new Scanner(System.in);
-    public static void main(String[] args) {
+
+    private static final ArrayList<String> productesComprats = new ArrayList<>();
+
+    public static void main(String[] args) throws SQLException {
 
         int opcio;
 
@@ -35,39 +37,218 @@ public class Application {
                 case 12 -> modificarMaquina();
                 case 13 -> mostrarBenefici();
 
-                case -1 -> System.out.println("Bye...");
+                case -1 -> System.out.println("Sortint del programa...");
                 default -> System.out.println("Opció no vàlida");
             }
 
-        }while(opcio != -1);
+        } while(opcio != -1);
 
     }
 
 
-    private static void modificarMaquina() {
+    private static void modificarMaquina() throws SQLException {
 
-        /**
-         * Ha de permetre:
-         *      - modificar les posicions on hi ha els productes de la màquina (quin article va a cada lloc)
-         *      - modificar stock d'un producte que hi ha a la màquina
-         *      - afegir més ranures a la màquina
-         */
+        int opcio;
+
+        do {
+            System.out.println("1. Modificar posició");
+            System.out.println("2. Modificar stock");
+            System.out.println("3. Afegir ranures");
+            System.out.println("-1. Sortir");
+            System.out.print("Opció : ");
+
+            opcio = escaner.nextInt();
+
+            switch (opcio) {
+                case 1 -> modificarPosicio();
+                case 2 -> modificarStock();
+                case 3 -> afegirRanures();
+
+                case -1 -> System.out.println("Sortint del menú de modificació de màquina...");
+                default -> System.out.println("Opció no vàlida.");
+            }
+
+        } while (opcio != -1);
+
+    }
+
+    private static void modificarPosicio() throws SQLException {
+
+        ArrayList<Slot> slots = slotDAO.readSlots();
+
+        boolean existeixProducte = false;
+
+        System.out.print("Introdueix la posició on vols canviar el producte : ");
+        int posicio = escaner.nextInt();
+
+        for (Slot slot : slots) {
+            if (slot.getPosicio() == posicio) {
+                existeixProducte = true;
+                System.out.print("Introdueix el codi del nou producte : ");
+                String codiProducte = escaner.next();
+                slot.setCodiProducte(codiProducte);
+                slotDAO.updateSlot(slot);
+                System.out.printf("\nS'ha substituït el producte a la posició %d amb el producte %s%n", posicio, codiProducte);
+                break;
+            }
+        }
+        if (!existeixProducte) {
+            System.out.println("\nNo hi ha cap producte en aquesta posició");
+        }
+
+    }
+
+    private static void modificarStock() throws SQLException {
+
+        ArrayList<Slot> slots = slotDAO.readSlots();
+
+        boolean existeixProducte = false;
+
+        System.out.print("Introdueix el producte que vols modificar l'estoc : ");
+        String codiProducte = escaner.next();
+
+        for (Slot slot : slots) {
+            if (slot.getCodiProducte().equals(codiProducte)) {
+                System.out.print("Introdueix la nova quantitat : ");
+                int quantitat = escaner.nextInt();
+                slot.setQuantitat(quantitat);
+                slotDAO.updateSlot(slot);
+                System.out.printf("\nS'ha modificat l'estoc del producte %s a %d unitats%n", slot.getCodiProducte(), slot.getQuantitat());
+                existeixProducte = true;
+            }
+        }
+        if (!existeixProducte) {
+            System.out.println("\nNo existeix el producte");
+        }
+
+    }
+
+    private static void afegirRanures() throws SQLException {
+
+        System.out.print("Introdueix la posició de la nova ranura (número): ");
+        int posicio = escaner.nextInt();
+
+        System.out.print("Introdueix el codi del producte: ");
+        String codi_producte = escaner.next();
+
+        System.out.print("Introdueix la quantitat: ");
+        int quantitat = escaner.nextInt();
+
+
+        ArrayList<Slot> slots = slotDAO.readSlots();
+
+        // Verifiquem que no existeixi una ranura amb el mateix codi de producte
+        for (Slot slot : slots) {
+            if (slot.getCodiProducte().equals(codi_producte)) {
+                System.out.println("\nJa existeix una ranura amb aquest producte");
+                return;
+            } else if (slot.getPosicio() == posicio) {
+                System.out.println("\nJa existeix una ranura en aquesta posició");
+                return;
+            }
+        }
+
+        // Verifiquem que existeixi el producte
+        ArrayList<Producte> productes = ProducteDAO.readProductes();
+        boolean producteExists = false;
+        for (Producte producte : productes) {
+            if (producte.getCodiProducte().equals(codi_producte)) {
+                producteExists = true;
+                break;
+            }
+        }
+        if (!producteExists) {
+            System.out.printf("\nEl producte amb el codi %s no existeix %n", codi_producte);
+            System.out.print("Productes disponibles: ");
+            for (Producte producte : productes) {
+                System.out.printf("%s, ", producte.getCodiProducte());
+            }
+            System.out.println();
+            return;
+        }
+
+        // Creem la ranura
+        Slot slot = new Slot();
+        slot.setPosicio(posicio);
+        slot.setQuantitat(quantitat);
+        slot.setCodiProducte(codi_producte);
+
+        try {
+            slotDAO.createSlot(slot);
+            System.out.printf("\nS'ha afegit una ranura a la posició %d amb el producte %s i quantitat %d %n",
+                    posicio, codi_producte, quantitat);
+        } catch (SQLException e) {
+            System.out.printf("\nNo s'ha pogut afegir la ranura a la posició %d %n", posicio);
+            e.printStackTrace();
+        }
+
     }
 
     private static void afegirProductes() {
 
-        /**
-         *      Crear un nou producte amb les dades que ens digui l'operari
-         *      Agefir el producte a la BD (tenir en compte les diferents situacions que poden passar)
-         *          El producte ja existeix
-         *              - Mostrar el producte que té el mateix codiProducte
-         *              - Preguntar si es vol actualitzar o descartar l'operació
-         *          El producte no existeix
-         *              - Afegir el producte a la BD
-         *
-         *     Podeu fer-ho amb llenguatge SQL o mirant si el producte existeix i després inserir o actualitzar
-         */
+        try {
+            System.out.println("\n======PRODUCTE======");
+            System.out.print("Codi Producte : ");
+            String codiProducte = escaner.next();
 
+            Producte producte = ProducteDAO.readProducte(codiProducte); // comprovar si existeix el producte
+
+            if (producte != null) {
+
+                System.out.println("\nEl producte ja existeix en la base de dades:");
+                System.out.println(producte);
+
+                // Si existeix, preguntar si es vol actualitzar
+                System.out.print("\nVols actualitzar el producte? (S/N) : ");
+                String resposta = escaner.next();
+
+                if (resposta.equalsIgnoreCase("S")) {
+                    // Update product in database
+                    System.out.print("Nom : ");
+                    String nom = escaner.next();
+
+                    System.out.print("Descripció : ");
+                    String descripcio = escaner.next();
+
+                    System.out.print("Preu Compra : ");
+                    float preuCompra = escaner.nextFloat();
+
+                    System.out.print("Preu Venda : ");
+                    float preuVenta = escaner.nextFloat();
+
+                    producte.setNom(nom);
+                    producte.setDescripcio(descripcio);
+                    producte.setPreuCompra(preuCompra);
+                    producte.setPreuVenta(preuVenta);
+
+                    ProducteDAO.updateProducte(producte);
+
+                    System.out.println("\nProducte actualitzat correctament.");
+                } else {
+                    System.out.println("\nOperació descartada.");
+                }
+            } else {
+                // Product does not exist, add it to the database
+                System.out.print("Nom : ");
+                String nom = escaner.next();
+
+                System.out.print("Descripció : ");
+                String descripcio = escaner.next();
+
+                System.out.print("Preu Compra : ");
+                float preuCompra = escaner.nextFloat();
+
+                System.out.print("Preu Venda : ");
+                float preuVenta = escaner.nextFloat();
+
+                Producte nouProducte = new Producte(codiProducte, nom, descripcio, preuCompra, preuVenta);
+                ProducteDAO.createProducte(nouProducte);
+
+                System.out.println("\nProducte afegit correctament.");
+            }
+        } catch (Exception e) {
+            System.err.println("\nError al afegir el producte : " + e.getMessage());
+        }
 
     }
 
@@ -94,22 +275,53 @@ public class Application {
             System.out.println("Error al llegir els productes.");
             e.printStackTrace();
         }
-    }
-
-    private static void comprarProducte() {
-
-        /**
-         * Mínim: es realitza la compra indicant la posició on es troba el producte que es vol comprar
-         * Ampliació (0.5 punts): es permet entrar el NOM del producte per seleccionar-lo (abans cal mostrar els
-         * productes disponibles a la màquina)
-         *
-         * Tingueu en compte que quan s'ha venut un producte HA DE QUEDAR REFLECTIT a la BD que n'hi ha un menys.
-         * (stock de la màquina es manté guardat entre reinicis del programa)
-         */
 
     }
 
-    private static void mostrarMaquina() {
+    private static void comprarProducte() throws SQLException {
+
+        ArrayList<Slot> slots = slotDAO.readSlots();
+
+        System.out.println("\n================PRODUCTES================");
+        System.out.printf("%-12s %-20s %-10s %n", "ID", "Nom", "Preu (€)");
+        System.out.println("------------------------------------------");
+        for (Slot slot : slots) {
+            Producte producte = ProducteDAO.readProducte(slot.getCodiProducte());
+            System.out.printf("%-12s %-20s %-10.2f %n", slot.getCodiProducte(), producte.getNom(), producte.getPreuVenta());
+        }
+
+        // s'entra per ID
+        System.out.print("\nQuin producte vols comprar? (per la seva ID) : ");
+        String nomProducte = escaner.next();
+
+        // Comprovar que el producte és vàlid i té estoc
+        Producte producte = ProducteDAO.readProducte(nomProducte);
+        if (producte == null) {
+            System.out.println("\nEl producte no es troba disponible a la màquina.");
+            return;
+        }
+
+        Slot slot = slotDAO.readSlot(producte.getCodiProducte());
+        if (slot == null) {
+            System.out.println("\nEl producte no es troba disponible a la màquina.");
+            return;
+        }
+        if (slot.getQuantitat() == 0) {
+            System.out.println("\nEl producte està esgotat.");
+            return;
+        }
+
+        // Vendre el producte i actualitzar la quantitat de la ranura
+        slot.setQuantitat(slot.getQuantitat() - 1);
+        slotDAO.updateSlot(slot);
+
+        productesComprats.add(slot.getCodiProducte()); // afegim el producte a la llista de productes comprats
+
+        System.out.println("\nProducte comprat correctament.");
+
+    }
+
+    public static void mostrarMaquina() {
 
         ArrayList<Slot> slots;
 
@@ -142,6 +354,7 @@ public class Application {
     }
 
     private static void mostrarMenu() {
+
         System.out.println("\nMenú de la màquina expenedora");
         System.out.println("=============================");
         System.out.println("Selecciona la operació a realitzar introduïnt el número corresponent: \n");
@@ -160,23 +373,30 @@ public class Application {
 
         System.out.println();
         System.out.println("[-1] Sortir de l'aplicació");
+
     }
 
-    private static void mostrarBenefici() {
+    private static void mostrarBenefici() throws SQLException {
 
-        /** Ha de mostrar el benefici de la sessió actual de la màquina, cada producte té un cost de compra
-         * i un preu de venda. La suma d'aquesta diferència de tots productes que s'han venut ens donaran el benefici.
-         *
-         * Simplement s'ha de donar el benefici actual des de l'últim cop que s'ha engegat la màquina. (es pot fer
-         * amb un comptador de benefici que s'incrementa per cada venda que es fa)
-         */
+        double beneficiTotal = 0.0;
 
-        /** AMPLIACIÓ **
-         * En entrar en aquest menú ha de permetre escollir entre dues opcions: veure el benefici de la sessió actual o
-         * tot el registre de la màquina.
-         *
-         * S'ha de crear una nova taula a la BD on es vagi realitzant un registre de les vendes o els beneficis al
-         * llarg de la vida de la màquina.
-         */
+        System.out.println("========== PRODUCTES COMPRATS ==========");
+        System.out.printf("%-20s %-10s %n", "Producte", "Benefici (€)");
+        System.out.println("--------------------------------------");
+
+        for (String codiProducte : productesComprats) {
+            Producte producte = ProducteDAO.readProducte(codiProducte);
+            double preuVenta = producte.getPreuVenta();
+            double costCompra = producte.getPreuCompra();
+            double beneficiProducte = preuVenta - costCompra;
+
+            System.out.printf("%-20s %-10.2f %n", producte.getNom(), beneficiProducte);
+            beneficiTotal += beneficiProducte;
+        }
+
+        System.out.println("--------------------------------------");
+        System.out.printf("%-20s %-10.2f %n", "Benefici total", beneficiTotal, "€");
+
     }
+
 }
