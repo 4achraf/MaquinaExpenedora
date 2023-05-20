@@ -203,7 +203,8 @@ public class Application {
                 String resposta = escaner.next();
 
                 if (resposta.equalsIgnoreCase("S")) {
-                    // Update product in database
+
+                    // afegir nom i descripció sense utilitzar espais
                     System.out.print("Nom : ");
                     String nom = escaner.next();
 
@@ -228,7 +229,8 @@ public class Application {
                     System.out.println("\nOperació descartada.");
                 }
             } else {
-                // Product does not exist, add it to the database
+
+                // afegir nom i descripció sense espais
                 System.out.print("Nom : ");
                 String nom = escaner.next();
 
